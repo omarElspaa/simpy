@@ -15,32 +15,41 @@ if not SABRE_API_KEY or not SABRE_API_SECRET:
 
 class MyHandler(http.server.SimpleHTTPRequestHandler):
     def do_GET(self):
-        # Request data from the Sabre Alternate Airport Shop API
-        url = "https://api.sabre.com/v1/shop/flights/altairports"
-        headers = {
-            "Authorization": f"Bearer {self.get_sabre_token()}",
-            "Content-Type": "application/json"
-        }
-        params = {
-            "origin": "LAX",
-            "destination": "JFK",
-            "departuredate": "2024-07-01"
-        }
+        try:
+            # Request data from the Sabre Alternate Airport Shop API
+            url = "https://api.sabre.com/v1/shop/flights/altairports"
+            headers = {
+                "Authorization": f"Bearer {self.get_sabre_token()}",
+                "Content-Type": "application/json"
+            }
+            params = {
+                "origin": "LAX",
+                "destination": "JFK",
+                "departuredate": "2024-07-01"
+            }
 
-        response = requests.get(url, headers=headers, params=params)
-        data = response.json()
+            response = requests.get(url, headers=headers, params=params)
+            data = response.json()
 
-        # Prepare and send the response
-        self.send_response(200)
-        self.send_header("Content-type", "application/json")
-        self.end_headers()
-        self.wfile.write(json.dumps(data).encode())
+            # Prepare and send the response
+            self.send_response(200)
+            self.send_header("Content-type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps(data).encode())
+        except Exception as e:
+            self.send_response(500)
+            self.send_header("Content-type", "text/plain")
+            self.end_headers()
+            self.wfile.write(str(e).encode())
 
     def get_sabre_token(self):
         # Obtain OAuth token from Sabre
         auth_url = "https://api.sabre.com/v2/auth/token"
+        auth_string = f"{SABRE_API_KEY}:{SABRE_API_SECRET}"
+        auth_base64 = base64.b64encode(auth_string.encode()).decode()
+
         auth_headers = {
-            "Authorization": f"Basic {base64.b64encode(f'{SABRE_API_KEY}:{SABRE_API_SECRET}'.encode()).decode()}",
+            "Authorization": f"Basic {auth_base64}",
             "Content-Type": "application/x-www-form-urlencoded"
         }
         auth_data = {
@@ -48,7 +57,7 @@ class MyHandler(http.server.SimpleHTTPRequestHandler):
         }
 
         auth_response = requests.post(auth_url, headers=auth_headers, data=auth_data)
-        auth_response.raise_for_status()
+        auth_response.raise_for_status()  # Will raise HTTPError for bad responses
         token_data = auth_response.json()
         return token_data['access_token']
 
